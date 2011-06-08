@@ -1,0 +1,96 @@
+#!/home/teppey/opt/bin/gosh
+;; vim:set ft=scheme fileencoding=utf-8:
+
+(use gauche.threads)
+(use gauche.interactive :only (apropos info))
+(use gauche.listener :only (complete-sexp?))
+(use srfi-1 :only (append-map))
+(use file.util)
+(use term.readline)
+
+(define (start-evaluator!)
+  (define (error-handler condition)
+    (format #t "Error: ~a\n" (condition-ref condition 'message)))
+  (define (interactive?)
+    (eq? (thread-specific (current-thread)) 'root))
+  (define (repl to from)
+    (let* ([input (open-input-file to)]
+           [sexps (port->sexp-list input)])
+      (unless (interactive?)
+        (newline))
+      ;; eval-print
+      (guard (e (else (error-handler e)))
+        (for-each (^e (call-with-values
+                        (lambda () (eval e (interaction-environment)))
+                        (lambda results
+                          (for-each (^r (write/ss r) (newline))
+                                    results))))
+                  sexps))
+      (unless (interactive?)
+        (display "gosh> "))
+      (flush)
+      (close-input-port input)
+      (when (interactive?)
+        (thread-specific-set! (current-thread) #f)
+        (with-output-to-file from (cut display #\a)))
+      (repl to from)))
+  (define (channel-initialize!)
+    (let* ([dir (build-path (temporary-directory) #`"goshx-,(sys-getpid)")]
+           [to (build-path dir "to")]
+           [from (build-path dir "from")])
+      (sys-mkdir dir #o0700)
+      (sys-mkfifo to #o0600)
+      (sys-mkfifo from #o0600)
+      (values dir to from)))
+  (receive (dir to from)
+    (channel-initialize!)
+    (let1 th (make-thread (cut repl to from))
+      (values dir to from (thread-start! th)))))
+
+(define (history-file)
+  (build-path (home-directory) ".gosh_history"))
+
+(define (rl-init!)
+  (define (all-functions-list)
+    (append-map (^m (hash-table-map (module-table m)
+                    (^(sym gloc) (symbol->string sym))))
+                (all-modules)))
+  (rl-read-history! (history-file))
+  (rl-set-application-name!            "Gauche")
+  (rl-set-basic-word-break-characters! " \t\n()',\";")
+  (rl-set-basic-quote-characters!      "\"")
+  (rl-set-prompt!                      :ps1 "gosh> " :ps2 "..... ")
+  (rl-set-completion-list-function!    (lambda () (all-functions-list)))
+  (rl-stifle-history!                  1000))
+
+(define (start-interaction! to from eval-thread)
+  (let1 readline-port (make-readline-input-port)
+    (rl-init!)
+    (let/cc break
+      (while #t
+        (rl-set-prompt-state! 'ps1)
+        (let loop ((line (read-line readline-port)))
+          (cond [(eof-object? line)
+                 (break #f)]
+                [(complete-sexp? line)
+                 (thread-specific-set! eval-thread 'root)
+                 (call-with-output-file to (cut display line <>))
+                 (let1 p (open-input-file from)
+                   (read-char p)
+                   (close-input-port p))
+                 (rl-commit-history!)]
+                [else
+                  (loop (string-append line (read-line readline-port)))]))))))
+
+(define (main _)
+  (let1 channel-directory #f
+    (dynamic-wind
+      (lambda () #f)
+      (lambda ()
+        (receive (dir to from eval-thread) (start-evaluator!)
+          (set! channel-directory dir)
+          (start-interaction! to from eval-thread)))
+      (lambda ()
+        (remove-directory* channel-directory)
+        (rl-write-history (history-file))))
+    (exit 0)))
