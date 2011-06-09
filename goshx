@@ -27,6 +27,7 @@
 ;;   - handling command line options like gosh(-I,-A,...)
 ;;   - illustrated comment
 ;;   - testing infinite loop
+;;   - signal handling
 
 (use gauche.threads)
 (use gauche.interactive :only (apropos info))
@@ -42,24 +43,27 @@
     (eq? (thread-specific (current-thread)) 'root))
   (define (repl to from)
     (let* ([input (open-input-file to)]
+           [output (if (interactive?)
+                     (open-output-file from)
+                     (current-output-port))]
            [sexps (port->sexp-list input)])
-      (unless (interactive?)
-        (newline))
-      ;; eval-print
-      (guard (e (else (error-handler e)))
-        (for-each (^e (call-with-values
-                        (lambda () (eval e (interaction-environment)))
-                        (lambda results
-                          (for-each (^r (write/ss r) (newline))
-                                    results))))
-                  sexps))
-      (unless (interactive?)
-        (display "gosh> "))
-      (flush)
       (close-input-port input)
+      (with-output-to-port output
+        (lambda ()
+          (unless (interactive?) (newline))
+          ;; eval-print
+          (guard (e (else (error-handler e)))
+            (for-each (^e (call-with-values
+                            (lambda () (eval e (interaction-environment)))
+                            (lambda results
+                              (for-each (^r (write/ss r) (newline))
+                                        results))))
+                      sexps))
+          (unless (interactive?) (display "gosh> "))
+          (flush)))
       (when (interactive?)
         (thread-specific-set! (current-thread) #f)
-        (with-output-to-file from (cut display #\a)))
+        (close-output-port output))
       (repl to from)))
   (define (channel-initialize!)
     (let* ([dir (build-path (temporary-directory) #`"goshx")]
@@ -101,10 +105,12 @@
                  (break #f)]
                 [(complete-sexp? line)
                  (thread-specific-set! eval-thread 'root)
+                 ;; Request evaluation
                  (call-with-output-file to (cut display line <>))
-                 (let1 p (open-input-file from)
-                   (read-char p)
-                   (close-input-port p))
+                 ;; Receive results
+                 (call-with-input-file from
+                   (^(in) (until (read-line in) eof-object? => line
+                            (print line))))
                  (rl-commit-history!)]
                 [else
                   ;; Continuous line; add newline that because read-line
