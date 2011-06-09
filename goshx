@@ -10,6 +10,7 @@
 ;;   - create channel to $HOME/.goshx/{in,out}
 ;;   - better script name (`gosh-rlx'?)
 ;;   - allow multiple invocation?
+;;   - handling command line options like gosh(-I,-A,...)
 
 (use gauche.threads)
 (use gauche.interactive :only (apropos info))
