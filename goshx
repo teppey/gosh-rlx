@@ -101,7 +101,10 @@
                    (close-input-port p))
                  (rl-commit-history!)]
                 [else
-                  (loop (string-append line (read-line readline-port)))]))))))
+                  ;; Continuous line; add newline that because read-line
+                  ;; remove line-terminator.
+                  (loop (string-append
+                          #`",|line|\n" (read-line readline-port)))]))))))
 
 (define (main _)
   (let1 channel-directory #f
