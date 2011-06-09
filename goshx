@@ -28,6 +28,7 @@
 ;;   - illustrated comment
 ;;   - testing infinite loop
 ;;   - signal handling
+;;   - use unix domain sokcet instead name pipe to avoid order dependency
 
 (use gauche.threads)
 (use gauche.interactive :only (apropos info))
@@ -42,12 +43,11 @@
   (define (interactive?)
     (eq? (thread-specific (current-thread)) 'root))
   (define (repl to from)
-    (let* ([input (open-input-file to)]
+    ;; Note that binding order is important to avoid deadlock.
+    (let* ([sexps (call-with-input-file to port->sexp-list)]
            [output (if (interactive?)
                      (open-output-file from)
-                     (current-output-port))]
-           [sexps (port->sexp-list input)])
-      (close-input-port input)
+                     (current-output-port))])
       (with-output-to-port output
         (lambda ()
           (unless (interactive?) (newline))
