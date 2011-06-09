@@ -1,6 +1,10 @@
 #!/home/teppey/opt/bin/gosh
 ;; vim:set ft=scheme fileencoding=utf-8:
 
+;;;
+;;; goshx - Gauche-readline repl with listener
+;;;
+
 (use gauche.threads)
 (use gauche.interactive :only (apropos info))
 (use gauche.listener :only (complete-sexp?))
@@ -35,7 +39,7 @@
         (with-output-to-file from (cut display #\a)))
       (repl to from)))
   (define (channel-initialize!)
-    (let* ([dir (build-path (temporary-directory) #`"goshx-,(sys-getpid)")]
+    (let* ([dir (build-path (temporary-directory) #`"goshx")]
            [to (build-path dir "to")]
            [from (build-path dir "from")])
       (sys-mkdir dir #o0700)
@@ -82,6 +86,7 @@
                 [else
                   (loop (string-append line (read-line readline-port)))]))))))
 
+
 (define (main _)
   (let1 channel-directory #f
     (dynamic-wind
@@ -92,5 +97,5 @@
           (start-interaction! to from eval-thread)))
       (lambda ()
         (remove-directory* channel-directory)
-        (rl-write-history (history-file))))
-    (exit 0)))
+        (rl-write-history (history-file))
+        (exit 0)))))
