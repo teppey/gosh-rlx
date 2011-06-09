@@ -21,7 +21,6 @@
 
 ;; TODO
 ;;   - show stacktrace on error
-;;   - create channel to $HOME/.gosh-rlx/{in,out}
 ;;   - allow multiple invocation?
 ;;   - handling command line options like gosh(-I,-A,...)
 ;;   - illustrated comment
@@ -65,12 +64,12 @@
         (close-output-port output))
       (repl to from)))
   (define (channel-initialize!)
-    (let* ([dir (build-path (temporary-directory) #`"gosh-rlx")]
+    (let* ([dir (build-path (home-directory) #`".gosh-rlx")]
            [to (build-path dir "to")]
            [from (build-path dir "from")])
-      (sys-mkdir dir #o0700)
-      (sys-mkfifo to #o0600)
-      (sys-mkfifo from #o0600)
+      (unless (file-exists? dir) (sys-mkdir dir #o0700))
+      (unless (file-exists? to) (sys-mkfifo to #o0600))
+      (unless (file-exists? from) (sys-mkfifo from #o0600))
       (values dir to from)))
   (receive (dir to from)
     (channel-initialize!)
@@ -126,6 +125,5 @@
           (set! channel-directory dir)
           (start-interaction! to from eval-thread)))
       (lambda ()
-        (remove-directory* channel-directory)
         (rl-write-history (history-file))
         (exit 0)))))
