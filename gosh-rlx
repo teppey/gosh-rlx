@@ -2,7 +2,7 @@
 ;; vim:set ft=scheme fileencoding=utf-8:
 
 ;;;
-;;; goshx - Gauche-readline repl with listener
+;;; gosh-rlx - Gauche-readline repl with listener
 ;;;
 ;;;
 ;;; Readline module for Gauche
@@ -21,8 +21,7 @@
 
 ;; TODO
 ;;   - show stacktrace on error
-;;   - create channel to $HOME/.goshx/{in,out}
-;;   - better script name (`gosh-rlx'?)
+;;   - create channel to $HOME/.gosh-rlx/{in,out}
 ;;   - allow multiple invocation?
 ;;   - handling command line options like gosh(-I,-A,...)
 ;;   - illustrated comment
@@ -66,7 +65,7 @@
         (close-output-port output))
       (repl to from)))
   (define (channel-initialize!)
-    (let* ([dir (build-path (temporary-directory) #`"goshx")]
+    (let* ([dir (build-path (temporary-directory) #`"gosh-rlx")]
            [to (build-path dir "to")]
            [from (build-path dir "from")])
       (sys-mkdir dir #o0700)
