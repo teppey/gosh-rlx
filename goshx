@@ -5,6 +5,12 @@
 ;;; goshx - Gauche-readline repl with listener
 ;;;
 
+;; TODO
+;;   - show stacktrace on error
+;;   - create channel to $HOME/.goshx/{in,out}
+;;   - better script name (`gosh-rlx'?)
+;;   - allow multiple invocation?
+
 (use gauche.threads)
 (use gauche.interactive :only (apropos info))
 (use gauche.listener :only (complete-sexp?))
