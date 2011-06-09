@@ -12,6 +12,12 @@
 ;;; Please send bug reports and comments to:
 ;;;   temada@gmail.com   Teppei Hamada
 ;;;
+;;;
+;;; [user] -> [readline repl] ------> +------------+
+;;;                                   | named pipe | -> [evaluator]
+;;; [other process (e.g. vim)] -----> +------------+
+;;;
+
 
 ;; TODO
 ;;   - show stacktrace on error
