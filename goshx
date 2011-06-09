@@ -4,6 +4,14 @@
 ;;;
 ;;; goshx - Gauche-readline repl with listener
 ;;;
+;;;
+;;; Readline module for Gauche
+;;; <http://www.netlab.is.tsukuba.ac.jp/~yokota/izumi/gauche/>
+;;;
+;;;
+;;; Please send bug reports and comments to:
+;;;   temada@gmail.com   Teppei Hamada
+;;;
 
 ;; TODO
 ;;   - show stacktrace on error
@@ -11,6 +19,8 @@
 ;;   - better script name (`gosh-rlx'?)
 ;;   - allow multiple invocation?
 ;;   - handling command line options like gosh(-I,-A,...)
+;;   - illustrated comment
+;;   - testing infinite loop
 
 (use gauche.threads)
 (use gauche.interactive :only (apropos info))
@@ -92,7 +102,6 @@
                  (rl-commit-history!)]
                 [else
                   (loop (string-append line (read-line readline-port)))]))))))
-
 
 (define (main _)
   (let1 channel-directory #f
