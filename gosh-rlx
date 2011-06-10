@@ -29,7 +29,7 @@
 ;;   - use unix domain sokcet instead name pipe to avoid order dependency
 
 (use gauche.threads)
-(use gauche.interactive :only (apropos info))
+(use gauche.interactive)
 (use gauche.listener :only (complete-sexp?))
 (use srfi-1 :only (append-map))
 (use file.util)
