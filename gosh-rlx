@@ -35,7 +35,7 @@
 (use file.util)
 (use term.readline)
 
-(define (start-evaluator!)
+(define (start-evaluator! to from)
   (define (print-error condition)
     (if (and (condition? condition)
              (condition-has-type? condition <message-condition>))
@@ -71,19 +71,8 @@
         (display "gosh> "))
       (flush)
       (repl to from)))
-  (define (channel-initialize!)
-    (let* ([dir (build-path (home-directory) #`".gosh-rlx")]
-           [to (build-path dir "to")]
-           [from (build-path dir "from")])
-      (unless (file-exists? dir) (sys-mkdir dir #o0700))
-      (unless (file-exists? to) (sys-mkfifo to #o0600))
-      (unless (file-exists? from) (sys-mkfifo from #o0600))
-      (values dir to from)))
 
-  (receive (dir to from)
-    (channel-initialize!)
-    (let1 th (make-thread (cut repl to from))
-      (values dir to from (thread-start! th)))))
+  (thread-start! (make-thread (cut repl to from))))
 
 (define (history-file)
   (build-path (home-directory) ".gosh_history"))
@@ -107,7 +96,7 @@
     (let/cc break
       (while #t
         (rl-set-prompt-state! 'ps1)
-        (let loop ((line (read-line readline-port)))
+        (let loop ([line (read-line readline-port)])
           (cond [(eof-object? line)
                  (break #f)]
                 [(complete-sexp? line)
@@ -125,14 +114,22 @@
                   (loop (string-append
                           #`",|line|\n" (read-line readline-port)))]))))))
 
+(define (channel-initialize!)
+  (let* ([dir (build-path (home-directory) #`".gosh-rlx")]
+         [to (build-path dir "to")]
+         [from (build-path dir "from")])
+    (unless (file-exists? dir) (sys-mkdir dir #o0700))
+    (unless (file-exists? to) (sys-mkfifo to #o0600))
+    (unless (file-exists? from) (sys-mkfifo from #o0600))
+    (values dir to from)))
+
 (define (main _)
-  (let1 channel-directory #f
+  (receive (dir to from)
+    (channel-initialize!)
     (dynamic-wind
       (lambda () #f)
+      (lambda () (start-interaction! to from (start-evaluator! to from)))
       (lambda ()
-        (receive (dir to from eval-thread) (start-evaluator!)
-          (set! channel-directory dir)
-          (start-interaction! to from eval-thread)))
-      (lambda ()
-        (rl-write-history (history-file))
-        (exit 0)))))
+        (remove-files `(,to ,from))
+        (rl-write-history (history-file))))
+    (exit 0)))
