@@ -26,7 +26,6 @@
 ;;   - illustrated comment
 ;;   - testing infinite loop
 ;;   - signal handling
-;;   - use unix domain sokcet instead name pipe to avoid order dependency
 
 (use gauche.threads)
 (use gauche.interactive)
@@ -35,7 +34,7 @@
 (use file.util)
 (use term.readline)
 
-(define (start-evaluator! to from)
+(define (start-evaluator! in out)
   (define (print-error condition)
     (if (and (condition? condition)
              (condition-has-type? condition <message-condition>))
@@ -51,11 +50,11 @@
           (dolist (result results)
             (write/ss result)
             (newline))))))
-  (define (repl to from)
+  (define (repl in out)
     ;; Binding order is important to avoid deadlock.
-    (let* ([code (call-with-input-file to port->string)]
+    (let* ([code (call-with-input-file in port->string)]
            [output (if (interactive?)
-                     (open-output-file from)
+                     (open-output-file out)
                      (current-output-port))])
       (let/cc break
         (with-output-to-port output
@@ -70,9 +69,9 @@
                (close-output-port output))
         (display "gosh> "))
       (flush)
-      (repl to from)))
+      (repl in out)))
 
-  (thread-start! (make-thread (cut repl to from))))
+  (thread-start! (make-thread (cut repl in out))))
 
 (define (history-file)
   (build-path (home-directory) ".gosh_history"))
@@ -90,7 +89,7 @@
   (rl-set-completion-list-function!    (lambda () (all-functions-list)))
   (rl-stifle-history!                  1000))
 
-(define (start-interaction! to from eval-thread)
+(define (start-interaction! in out eval-thread)
   (let1 readline-port (make-readline-input-port)
     (rl-init!)
     (let/cc break
@@ -102,9 +101,9 @@
                 [(complete-sexp? line)
                  (thread-specific-set! eval-thread 'root)
                  ;; Request evaluation
-                 (call-with-output-file to (cut display line <>))
+                 (call-with-output-file in (cut display line <>))
                  ;; Receive results
-                 (call-with-input-file from
+                 (call-with-input-file out
                    (^(in) (until (read-line in) eof-object? => line
                             (print line))))
                  (rl-commit-history!)]
@@ -116,20 +115,20 @@
 
 (define (channel-initialize!)
   (let* ([dir (build-path (home-directory) #`".gosh-rlx")]
-         [to (build-path dir "to")]
-         [from (build-path dir "from")])
+         [in (build-path dir "in")]
+         [out (build-path dir "out")])
     (unless (file-exists? dir) (sys-mkdir dir #o0700))
-    (unless (file-exists? to) (sys-mkfifo to #o0600))
-    (unless (file-exists? from) (sys-mkfifo from #o0600))
-    (values dir to from)))
+    (unless (file-exists? in) (sys-mkfifo in #o0600))
+    (unless (file-exists? out) (sys-mkfifo out #o0600))
+    (values dir in out)))
 
 (define (main _)
-  (receive (dir to from)
+  (receive (dir in out)
     (channel-initialize!)
     (dynamic-wind
       (lambda () #f)
-      (lambda () (start-interaction! to from (start-evaluator! to from)))
+      (lambda () (start-interaction! in out (start-evaluator! in out)))
       (lambda ()
-        (remove-files `(,to ,from))
+        (remove-files `(,in ,out))
         (rl-write-history (history-file))))
     (exit 0)))
