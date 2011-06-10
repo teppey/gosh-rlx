@@ -27,7 +27,6 @@
 ;;   - testing infinite loop
 ;;   - signal handling
 ;;   - use unix domain sokcet instead name pipe to avoid order dependency
-;;   - evaluate (raise expr), freeze
 
 (use gauche.threads)
 (use gauche.interactive)
@@ -38,7 +37,10 @@
 
 (define (start-evaluator!)
   (define (error-handler condition)
-    (format #t "Error: ~a\n" (condition-ref condition 'message)))
+    (if (and (condition? condition)
+             (condition-has-type? condition <message-condition>))
+      (format #t "Error: ~a\n" (condition-ref condition 'message))
+      (format #t "Error: ~a\n" (x->string condition))))
   (define (interactive?)
     (eq? (thread-specific (current-thread)) 'root))
   (define (repl to from)
