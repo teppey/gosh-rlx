@@ -27,6 +27,7 @@
 ;;   - testing infinite loop
 ;;   - signal handling
 ;;   - use unix domain sokcet instead name pipe to avoid order dependency
+;;   - evaluate (raise expr), freeze
 
 (use gauche.threads)
 (use gauche.interactive)
