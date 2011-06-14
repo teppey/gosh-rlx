@@ -123,6 +123,11 @@
     (values dir in out)))
 
 (define (main _)
+  (set-signal-handler! SIGINT
+    (^n (format (current-error-port)
+                "*** UNHANDLED-SIGNAL-ERROR: unhandled signal ~d ~a\n"
+                n (sys-signal-name n))))
+
   (receive (dir in out)
     (channel-initialize!)
     (dynamic-wind
